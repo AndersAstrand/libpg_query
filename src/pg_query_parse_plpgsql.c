@@ -222,6 +222,24 @@ static PLpgSQL_function *compile_create_function_stmt(CreateFunctionStmt* stmt)
 		rec = plpgsql_build_record("old", 0, true);
 		function->old_varno = rec->dno;
 	}
+	function->fn_nargs = 0;
+
+	foreach (lc, stmt->parameters) {
+		FunctionParameter *fp = (FunctionParameter *) lfirst(lc);
+		if (fp->name) {
+			var = plpgsql_build_variable(
+				fp->name,
+				0,
+				plpgsql_build_datatype(
+					UNKNOWNOID,
+					-1,
+					InvalidOid
+				),
+				true
+			);
+			function->fn_argvarnos[function->fn_nargs++] = var->dno;
+		}
+	}
 
 	/*
 	 * Now parse the function's text
@@ -243,7 +261,6 @@ static PLpgSQL_function *compile_create_function_stmt(CreateFunctionStmt* stmt)
 	/*
 	 * Complete the function's info
 	 */
-	function->fn_nargs = 0;
 	function->ndatums = plpgsql_nDatums;
 	function->datums = palloc(sizeof(PLpgSQL_datum *) * plpgsql_nDatums);
 	for (i = 0; i < plpgsql_nDatums; i++)
