@@ -353,18 +353,32 @@ typedef struct createFunctionStmts
 static bool create_function_stmts_walker(Node *node, createFunctionStmts *state)
 {
 	bool result;
+	char *language = "";
 
 	if (node == NULL) return false;
 
 	if (IsA(node, CreateFunctionStmt))
 	{
-		if (state->stmts_count >= state->stmts_buf_size)
+		ListCell *lc;
+		CreateFunctionStmt *cfs = node;
+		foreach(lc, cfs->options)
 		{
-			state->stmts_buf_size *= 2;
-			state->stmts = (CreateFunctionStmt**) repalloc(state->stmts, state->stmts_buf_size * sizeof(CreateFunctionStmt*));
+			DefElem* elem = (DefElem*) lfirst(lc);
+			if (strcmp(elem->defname, "language") == 0) {
+				assert(IsA(elem->arg, String));
+				language = strVal(elem->arg);
+			}
 		}
-		state->stmts[state->stmts_count] = (CreateFunctionStmt *) node;
-		state->stmts_count++;
+
+		if (strcmp(language, "plpgsql") == 0) {
+			if (state->stmts_count >= state->stmts_buf_size)
+			{
+				state->stmts_buf_size *= 2;
+				state->stmts = (CreateFunctionStmt**) repalloc(state->stmts, state->stmts_buf_size * sizeof(CreateFunctionStmt*));
+			}
+			state->stmts[state->stmts_count] = (CreateFunctionStmt *) node;
+			state->stmts_count++;
+		}
 	} else if (IsA(node, RawStmt)) {
 		return create_function_stmts_walker((Node *) ((RawStmt *) node)->stmt, state);
 	}
